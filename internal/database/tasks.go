@@ -14,7 +14,9 @@ type TaskStore struct {
 }
 
 func NewTaskStore(db *sqlx.DB) *TaskStore {
-	return &TaskStore{db: db}
+	return &TaskStore{
+		db: db,
+	}
 }
 
 func (s *TaskStore) GetAll() ([]models.Task, error) {
