@@ -59,6 +59,64 @@ func (h *Handlers) getTask(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) createTask(w http.ResponseWriter, r *http.Request) {
 	var input models.CreateTaskInput
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
-		respondWithError(w, http.StatusBadRequest, "Invalid request payload")
+		respondWithError(w, http.StatusBadRequest, "Некорректно отправленные данные")
+		return
 	}
+
+	if strings.TrimSpace(input.Title) == "" {
+		respondWithError(w, http.StatusBadRequest, "Заголовок задачи должен быть заполнен")
+		return
+	}
+	task, err := h.store.Create(input)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	respondWithJSON(w, http.StatusCreated, task)
+}
+
+func (h *Handlers) updateTask(w http.ResponseWriter, r *http.Request) {
+	pathParts := strings.Split(strings.TrimPrefix(r.URL.Path, "/tasks/"), "/")
+	idStr := pathParts[0]
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	var input models.UpdateTaskInput
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		respondWithError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if input.Title != nil && strings.TrimSpace(*input.Title) == "" {
+		respondWithError(w, http.StatusBadRequest, "Заголовок обязателен")
+	}
+
+	task, err := h.store.Update(id, input)
+	if err != nil {
+		if strings.Contains(err.Error(), "record not found") {
+			respondWithError(w, http.StatusNotFound, err.Error())
+		} else {
+			respondWithError(w, http.StatusInternalServerError, err.Error())
+		}
+		return
+	}
+	respondWithJSON(w, http.StatusOK, task)
+}
+
+func (h *Handlers) deleteTask(w http.ResponseWriter, r *http.Request) {
+	pathParts := strings.Split(strings.TrimPrefix(r.URL.Path, "/tasks/"), "/")
+	idStr := pathParts[0]
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	err = h.store.Delete(id)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	respondWithJSON(w, http.StatusOK, map[string]string{"result": "success"})
 }
